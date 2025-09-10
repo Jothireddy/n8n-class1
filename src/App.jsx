@@ -2,6 +2,7 @@
 import { useState } from "react";
 import ReactSandbox from "./ReactSandbox";
 import Credentials from "./credentials";
+import Chatbot from "./webhook"; // ✅ Import your chatbot component
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -10,6 +11,7 @@ export default function App() {
     { key: "home", label: "Home" },
     { key: "sandbox", label: "React Compiler" },
     { key: "credentials", label: "Credentials" },
+    { key: "chatbot", label: "Chatbot" }, // ✅ Added chatbot in nav
   ];
 
   return (
@@ -43,7 +45,7 @@ export default function App() {
             <div className="bg-white shadow-lg rounded-2xl p-10 text-center space-y-6">
               <h2 className="text-3xl font-bold text-gray-800">👋 Welcome to Dev Playground</h2>
               <p className="text-gray-600 text-lg">
-                Use the navigation bar above to explore the React Compiler or view credentials.
+                Use the navigation bar above to explore the React Compiler, view credentials, or chat with AI.
               </p>
               <div className="flex justify-center gap-4 flex-wrap">
                 <button
@@ -58,6 +60,12 @@ export default function App() {
                 >
                   Credentials
                 </button>
+                <button
+                  onClick={() => setPage("chatbot")}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg shadow-md transition"
+                >
+                  Chatbot
+                </button>
               </div>
             </div>
           </div>
@@ -65,6 +73,7 @@ export default function App() {
 
         {page === "sandbox" && <ReactSandbox />}
         {page === "credentials" && <Credentials />}
+        {page === "chatbot" && <Chatbot />} {/* ✅ Render chatbot */}
       </main>
     </div>
   );
