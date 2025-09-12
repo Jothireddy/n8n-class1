@@ -54,7 +54,7 @@ export default function App() {
 
       if (!res.ok) {
         // Corrected line below
-        throw new Error("HTTP error ${res.status}");
+        throw new Error(\`HTTP error \${res.status}\`);
       }
 
       const data = await res.json();
@@ -225,7 +225,7 @@ export default function App() {
               <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500 ease-out"
-                  style={{ width: "${((index + 1) / total) * 100}%" }}
+                  style={{ width: \`\${((index + 1) / total) * 100}%\` }}
                 />
               </div>
             </div>
@@ -313,7 +313,7 @@ Instructions:
 1. Input: A single topic as a string.
 2. Output:
    - 5–10 MCQs related to the topic.
-   - Each question must have exactly 4 options labeled as A, B, C, D.
+   - Each question must have exactly 4 options.
    - Each question must have *exactly one correct answer*.
    - Each question must include a "difficulty" field: "easy", "medium", or "hard".
    - Provide a unique numeric "id" for each question starting from 1.
@@ -339,11 +339,9 @@ Instructions:
 }
 
 4. Rules:
-   - Do *not* include explanations, notes, or extra text outside JSON.
+   - Do *not* include explanations, notes, or extra text outside the main JSON object.
    - Questions must be clear, concise, and grammatically correct.
    - Options must be unique and relevant to the question.
-   - Avoid ambiguous or opinion-based questions.
-   - Difficulty should reflect the complexity of the question.
    - Ensure the JSON is valid (parsable) and properly structured.
 
 5. Example Output (Topic: Solar System):
@@ -377,9 +375,27 @@ function Editor({ title, initialContent, language = "green" }) {
   const [copyButtonText, setCopyButtonText] = useState("Copy");
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(content);
-    setCopyButtonText("✅ Copied!");
-    setTimeout(() => setCopyButtonText("Copy"), 2000);
+    // A fallback for environments where navigator.clipboard is not available
+    try {
+        navigator.clipboard.writeText(content).then(() => {
+            setCopyButtonText("✅ Copied!");
+            setTimeout(() => setCopyButtonText("Copy"), 2000);
+        });
+    } catch (err) {
+        const textArea = document.createElement("textarea");
+        textArea.value = content;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            setCopyButtonText("✅ Copied!");
+            setTimeout(() => setCopyButtonText("Copy"), 2000);
+        } catch (err) {
+            setCopyButtonText("Failed!");
+        }
+        document.body.removeChild(textArea);
+    }
   };
 
   const textColor = language === "green" ? "text-green-300" : "text-sky-300";
@@ -421,7 +437,7 @@ function Editor({ title, initialContent, language = "green" }) {
 // ----------------------------------------------------------------------
 export default function CodeDisplay() {
   return (
-    <div className="min-h-screen w-full bg-gray-800 flex flex-col lg:flex-row items-center justify-center gap-8 p-4 lg:p-8">
+    <div className="min-h-screen w-full bg-gray-800 flex flex-col lg:flex-row items-start justify-center gap-8 p-4 lg:p-8">
       <Editor
         title="📝 quiz.jsx - React Code"
         initialContent={QUIZ_CODE}
