@@ -13,7 +13,7 @@ export default function Credentials() {
     name: "Jayakrishna",
     email: "jayakrishna5341@gmail.com",
     password: "Nandhu@123",
-    ip: "http://35.200.134.36:5678/",
+    ip: "http://34.14.222.47:5678/",
   };
 
   return (
