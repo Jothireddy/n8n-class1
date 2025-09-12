@@ -47,42 +47,44 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic }), // <-- single field only
       });
+      
+      // Get the raw text of the response first to avoid "body already used" errors
+      const responseText = await res.text();
 
       if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(\`HTTP \${res.status} - \${txt}\`);
+        throw new Error(\`HTTP \${res.status} - \${responseText}\`);
       }
 
-      // try common response shapes, else raw text
       let textBody = null;
       try {
-        const data = await res.json();
-        if (typeof data === "string") textBody = data;
-        else if (data.story && typeof data.story === "string") textBody = data.story;
-        else if (data.output && typeof data.output === "string") textBody = data.output;
-        else if (Array.isArray(data)) {
-          for (const item of data) {
-            const content = item?.choices?.[0]?.message?.content ?? item?.choices?.[0]?.text ?? item?.content ?? null;
-            if (content && typeof content === "string") { textBody = content; break; }
-            if (typeof item === "string") { textBody = item; break; }
-          }
-        } else if (data.choices && Array.isArray(data.choices)) {
-          const c = data.choices[0];
-          textBody = c?.message?.content ?? c?.text ?? null;
-        } else {
-          // pick any long string field
-          for (const k of Object.keys(data)) {
-            if (typeof data[k] === "string" && data[k].length > 20) { textBody = data[k]; break; }
-          }
+        // First, try to parse the text as JSON
+        const data = JSON.parse(responseText);
+        console.log("Webhook raw response:", data);
+
+        // Case 1: The exact format you provided (array with a chat completion)
+        if (Array.isArray(data) && data[0]?.choices?.[0]?.message?.content) {
+          textBody = data[0].choices[0].message.content;
+        }
+        // Case 2: A standard chat completion object (not in an array)
+        else if (data?.choices?.[0]?.message?.content) {
+          textBody = data.choices[0].message.content;
+        }
+        // Case 3: A simple object like { "story": "..." }
+        else if (data?.story && typeof data.story === 'string') {
+          textBody = data.story;
+        }
+        // Fallback: If it's valid JSON but doesn't match a known structure, use the raw text.
+        else {
+          textBody = responseText;
         }
       } catch (e) {
-        // not JSON — read as text
-        textBody = await res.text().catch(() => null);
+        // If JSON.parse fails, it's likely plain text, so we use the raw response.
+        textBody = responseText;
       }
-
+      
       if (!textBody) throw new Error("Empty or unexpected response from webhook.");
 
-      // strip triple-backticks or leading "Story:" label if assistant included them
+      // Strip triple-backticks or leading "Story:" label if assistant included them
       const fence = textBody.match(/(?:[a-zA-Z0-9_-]+)?\\n([\\s\\S]*?)/);
       const candidate = fence ? fence[1].trim() : textBody.trim();
       const cleaned = candidate.replace(/^Story:\\s*/i, "").trim();
@@ -90,8 +92,8 @@ export default function App() {
       setStory(cleaned);
     } catch (err) {
       console.error(err);
-      setError("Failed to send topic or parse response. " + (err.message || ""));
-      setStory(""); // keep empty or optionally show a fallback
+      setError("Failed to generate story. " + (err.message || ""));
+      setStory("");
     } finally {
       setLoading(false);
     }
@@ -100,7 +102,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-indigo-100 flex items-center justify-center p-6">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-indigo-700 mb-4">✨ Story Generator — send single topic</h1>
+        <h1 className="text-2xl font-bold text-indigo-700 mb-4">✨ Story Generator</h1>
 
         <div className="space-y-4">
           <div>
@@ -123,7 +125,6 @@ export default function App() {
               placeholder="castle, dragon, sword"
               className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-300"
             />
-            <p className="text-xs text-gray-500 mt-1">Will be sent as a single topic string to the backend.</p>
           </div>
 
           <div className="flex gap-3">
@@ -133,7 +134,7 @@ export default function App() {
               disabled={loading}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
             >
-              {loading ? "Sending..." : "Send Topic"}
+              {loading ? "Generating..." : "Generate Story"}
             </button>
 
             <button
@@ -185,9 +186,26 @@ function Editor({ title, initialContent, language = "green" }) {
   const [copyButtonText, setCopyButtonText] = useState("Copy");
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(content);
-    setCopyButtonText("✅ Copied!");
-    setTimeout(() => setCopyButtonText("Copy"), 2000);
+    try {
+        navigator.clipboard.writeText(content).then(() => {
+            setCopyButtonText("✅ Copied!");
+            setTimeout(() => setCopyButtonText("Copy"), 2000);
+        });
+    } catch (err) {
+        const textArea = document.createElement("textarea");
+        textArea.value = content;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            setCopyButtonText("✅ Copied!");
+            setTimeout(() => setCopyButtonText("Copy"), 2000);
+        } catch (err) {
+            setCopyButtonText("Failed!");
+        }
+        document.body.removeChild(textArea);
+    }
   };
 
   const textColor = language === "green" ? "text-green-300" : "text-sky-300";
@@ -229,7 +247,7 @@ function Editor({ title, initialContent, language = "green" }) {
 // ----------------------------------------------------------------------
 export default function StoryCodeDisplay() {
   return (
-    <div className="min-h-screen w-full bg-gray-800 flex flex-col lg:flex-row items-center justify-center gap-8 p-4 lg:p-8">
+    <div className="min-h-screen w-full bg-gray-800 flex flex-col lg:flex-row items-start justify-center gap-8 p-4 lg:p-8">
       <Editor
         title="📝 story.jsx - React Code"
         initialContent={STORY_CODE}
@@ -243,3 +261,4 @@ export default function StoryCodeDisplay() {
     </div>
   );
 }
+
