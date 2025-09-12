@@ -4,7 +4,7 @@ import React from "react";
 export default function Credentials() {
   const class1 = {
     name: "Hafeez",
-    email: "haffexahmed9700@gmail.com",
+    email: "hafeezahmed9700@gmail.com",
     password: "Nandhu@123",
     ip: "http://34.47.133.254:5678/",
   };

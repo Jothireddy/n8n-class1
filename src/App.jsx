@@ -1,8 +1,9 @@
-// App.jsx
 import { useState } from "react";
 import ReactSandbox from "./ReactSandbox";
 import Credentials from "./credentials";
-import Chatbot from "./webhook"; // ✅ Import your chatbot component
+import Chatbot from "./webhook";
+import QuizApp from "./quiz";
+import StoryApp from "./story"; // ✅ Import your story component
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -11,7 +12,9 @@ export default function App() {
     { key: "home", label: "Home" },
     { key: "sandbox", label: "React Compiler" },
     { key: "credentials", label: "Credentials" },
-    { key: "chatbot", label: "Chatbot" }, // ✅ Added chatbot in nav
+    { key: "chatbot", label: "Chatbot" },
+    { key: "quiz", label: "Quiz" },
+    { key: "story", label: "Story" }, // ✅ Added Story to nav
   ];
 
   return (
@@ -39,13 +42,16 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow flex flex-col items-center justify-center p-6">
+      <main className="flex-grow flex flex-col items-center justify-center p-6 w-full">
         {page === "home" && (
-          <div className="w-full max-w-xl">
+          <div className="w-full max-w-2xl">
             <div className="bg-white shadow-lg rounded-2xl p-10 text-center space-y-6">
-              <h2 className="text-3xl font-bold text-gray-800">👋 Welcome to Dev Playground</h2>
+              <h2 className="text-3xl font-bold text-gray-800">
+                👋 Welcome to Dev Playground
+              </h2>
               <p className="text-gray-600 text-lg">
-                Use the navigation bar above to explore the React Compiler, view credentials, or chat with AI.
+                Use the navigation bar above to explore the different tools,
+                including the React Compiler, Chatbot, Quiz, and Story Generator.
               </p>
               <div className="flex justify-center gap-4 flex-wrap">
                 <button
@@ -66,6 +72,18 @@ export default function App() {
                 >
                   Chatbot
                 </button>
+                <button
+                  onClick={() => setPage("quiz")}
+                  className="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2 rounded-lg shadow-md transition"
+                >
+                  Quiz
+                </button>
+                 <button
+                  onClick={() => setPage("story")}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg shadow-md transition"
+                >
+                  Story
+                </button>
               </div>
             </div>
           </div>
@@ -73,7 +91,9 @@ export default function App() {
 
         {page === "sandbox" && <ReactSandbox />}
         {page === "credentials" && <Credentials />}
-        {page === "chatbot" && <Chatbot />} {/* ✅ Render chatbot */}
+        {page === "chatbot" && <Chatbot />}
+        {page === "quiz" && <QuizApp />}
+        {page === "story" && <StoryApp />} {/* ✅ Render story here */}
       </main>
     </div>
   );
