@@ -4,24 +4,30 @@ import React, { useState } from "react";
 // 1. The FULL React code for the Quiz Component
 // ----------------------------------------------------------------------
 const QUIZ_CODE = `
-// FILE: src/App.jsx
 import React, { useEffect, useState } from "react";
 
-// Webhook and fallback data
-const WEBHOOK = "https://api.rigal.in/webhook/quiz";
+const WEBHOOK = "https://admin.rigal.in/webhook/quizblog";
+
 const SAMPLE_QUIZ = {
-  topic: "demon slayer anime",
+  topic: "Sample Quiz",
   questions: [
-    { id: 1, question: "Who is the main protagonist of Demon Slayer?", options: ["Tanjiro Kamado", "Nezuko Kamado", "Zenitsu Agatsuma", "Inosuke Hashibira"], answer: "Tanjiro Kamado", difficulty: "easy" },
-    { id: 2, question: "What was Nezuko transformed into early in the series?", options: ["A demon", "A Hashira", "A Breath user", "A Spirit"], answer: "A demon", difficulty: "easy" },
-    { id: 3, question: "Which breathing style does Tanjiro primarily use at the beginning of the series?", options: ["Water Breathing", "Flame Breathing", "Thunder Breathing", "Stone Breathing"], answer: "Water Breathing", difficulty: "easy" },
-    { id: 4, question: "Who is the primary antagonist behind the creation of many demons?", options: ["Muzan Kibutsuji", "Akaza", "Doma", "Kokushibo"], answer: "Muzan Kibutsuji", difficulty: "medium" },
-    { id: 5, question: "Which Hashira is known as the Flame Hashira featured prominently in the Mugen Train arc?", options: ["Kyojuro Rengoku", "Giyu Tomioka", "Tengen Uzui", "Shinobu Kocho"], answer: "Kyojuro Rengoku", difficulty: "easy" },
-    { id: 6, question: "What are the special swords used by Demon Slayers called?", options: ["Nichirin blades", "Zanpakuto", "Spirit Katanas", "Breath Sabers"], answer: "Nichirin blades", difficulty: "medium" },
-    { id: 7, question: "Which breathing style is the original form from which all other breathing styles were derived?", options: ["Sun Breathing", "Moon Breathing", "Water Breathing", "Wind Breathing"], answer: "Sun Breathing", difficulty: "hard" },
-    { id: 8, question: "Who holds the position of Upper Rank One among the Twelve Kizuki?", options: ["Kokushibo", "Akaza", "Doma", "Gyutaro"], answer: "Kokushibo", difficulty: "hard" },
+    { id: 1, question: "Fallback Q1?", options: ["A", "B", "C"], answer: "A", difficulty: "easy" },
+    { id: 2, question: "Fallback Q2?", options: ["X", "Y", "Z"], answer: "Y", difficulty: "medium" },
   ],
 };
+
+// --- Helper to parse JSON safely ---
+function extractJSONFromString(str) {
+  if (typeof str !== "string") return null;
+  const first = str.indexOf("{");
+  const last = str.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) return null;
+  try {
+    return JSON.parse(str.slice(first, last + 1));
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
   const [quiz, setQuiz] = useState(null);
@@ -33,35 +39,6 @@ export default function App() {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
-
-  // Helper: try to extract JSON object from various content formats
-  function extractJSONFromString(s) {
-    if (!s || typeof s !== "string") return null;
-
-    // If content is fenced with json ...  extract inner block
-    const fence = s.match(/(?:json)?\\s*([\\s\\S]*?)/i);
-    const candidate = fence ? fence[1] : s;
-
-    // Find the first { and the last } - take that slice (helps if assistant included text around JSON)
-    const first = candidate.indexOf("{");
-    const last = candidate.lastIndexOf("}");
-    if (first !== -1 && last !== -1 && last > first) {
-      const jsonStr = candidate.slice(first, last + 1);
-      try {
-        return JSON.parse(jsonStr);
-      } catch (e) {
-        // fallthrough to next attempt
-        console.warn("Failed to parse JSON from candidate slice:", e);
-      }
-    }
-
-    // final attempt: try parse the whole candidate
-    try {
-      return JSON.parse(candidate);
-    } catch (e) {
-      return null;
-    }
-  }
 
   async function fetchQuizWithTopic(t) {
     setLoading(true);
@@ -76,96 +53,56 @@ export default function App() {
       });
 
       if (!res.ok) {
-        // Try to get text body for debugging
-        const txt = await res.text().catch(() => "");
-        throw new Error(\`HTTP error \${res.status} - \${txt}\`);
+        // Corrected line below
+        throw new Error("HTTP error ${res.status}");
       }
 
-      // Parse JSON; if fails, we'll try to throw a helpful message
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        const txt = await res.text().catch(() => "");
-        throw new Error("Response is not valid JSON: " + txt);
-      }
+      const data = await res.json();
+      console.log("Webhook raw response:", data);
 
       let quizObj = null;
 
-      // If response is an array (sometimes the webhook forwards chat completion array)
       if (Array.isArray(data)) {
         for (const item of data) {
-          // common shapes:
           const content =
+            item?.message?.content ??
             item?.choices?.[0]?.message?.content ??
             item?.choices?.[0]?.text ??
-            item?.message?.content ??
             item?.content ??
             null;
+
           if (content) {
             const parsed = extractJSONFromString(content);
-            if (parsed && parsed.topic && Array.isArray(parsed.questions)) {
+            if (parsed?.topic && Array.isArray(parsed.questions)) {
               quizObj = parsed;
               break;
             }
           }
-          // If item itself is already the quiz object
-          if (item?.topic && Array.isArray(item.questions)) {
-            quizObj = item;
-            break;
-          }
         }
-      }
-      // If response is object
-      else if (data && typeof data === "object") {
-        // direct quiz object
-        if (data.topic && Array.isArray(data.questions)) {
-          quizObj = data;
-        } else {
-          // chat-completion-like object
-          const content =
-            data?.choices?.[0]?.message?.content ??
-            data?.choices?.[0]?.text ??
-            data?.message?.content ??
-            data?.content ??
-            null;
-          if (content) {
-            const parsed = extractJSONFromString(content);
-            if (parsed && parsed.topic && Array.isArray(parsed.questions)) {
-              quizObj = parsed;
-            }
-          }
-
-          // or choices may be an array of primitive strings / objects
-          if (!quizObj && Array.isArray(data.choices)) {
-            for (const ch of data.choices) {
-              const content2 = ch?.message?.content ?? ch?.text ?? ch;
-              const parsed2 = extractJSONFromString(content2);
-              if (parsed2 && parsed2.topic && Array.isArray(parsed2.questions)) {
-                quizObj = parsed2;
-                break;
-              }
-            }
-          }
+      } else if (data?.message?.content) {
+        const parsed = extractJSONFromString(data.message.content);
+        if (parsed?.topic && Array.isArray(parsed.questions)) {
+          quizObj = parsed;
         }
+      } else if (data?.topic && Array.isArray(data.questions)) {
+        quizObj = data;
       }
 
       if (!quizObj) {
-        console.warn("Webhook returned unexpected shape:", data);
         throw new Error("Unexpected response shape from webhook (see console).");
       }
 
       setQuiz(quizObj);
     } catch (err) {
       console.error(err);
-      setError("Failed to load quiz — using local sample. (" + err.message + ")");
+      setError("Failed to load quiz — using sample. (" + err.message + ")");
       setQuiz(SAMPLE_QUIZ);
     } finally {
       setLoading(false);
     }
   }
 
-  // On initial load, use the sample quiz.
+  // Load sample on first render
   useEffect(() => {
     setQuiz(SAMPLE_QUIZ);
     setLoading(false);
@@ -201,7 +138,7 @@ export default function App() {
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., solar system"
+              placeholder="e.g., Java"
               className="px-3 py-2 rounded-lg border bg-white w-full focus:ring-2 focus:ring-purple-400"
               disabled={loading}
             />
@@ -210,7 +147,7 @@ export default function App() {
               className="px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:bg-gray-400"
               disabled={loading || !topic.trim()}
             >
-              {loading ? "..." : "Generate"}
+              Generate
             </button>
           </div>
           {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
@@ -274,7 +211,7 @@ export default function App() {
               className="px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:bg-gray-400"
               disabled={loading || !topic.trim()}
             >
-              {loading ? "..." : "Go"}
+              Go
             </button>
           </div>
         </header>
@@ -282,47 +219,52 @@ export default function App() {
         <main>
           <div className="bg-white rounded-2xl shadow-lg p-6 md:p-10 overflow-hidden">
             <div className="mb-6">
-              <p className="text-sm text-gray-500 text-right mb-2">Question {index + 1} of {total}</p>
+              <p className="text-sm text-gray-500 text-right mb-2">
+                Question {index + 1} of {total}
+              </p>
               <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500 ease-out"
-                  style={{ width: \`\${((index + 1) / total) * 100}%\` }}
+                  style={{ width: "${((index + 1) / total) * 100}%" }}
                 />
               </div>
             </div>
-            
-            <div key={current.id} className="quiz-question">
-              <div className="flex items-start gap-4 md:gap-6">
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg flex-shrink-0">
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg md:text-xl font-bold mb-2 text-gray-800">{current.question}</h2>
-                  <p className="text-sm text-gray-400 mb-4 capitalize">Difficulty: {current.difficulty || "unknown"}</p>
-                  <div className="grid gap-3 md:gap-4">
-                    {current.options.map((opt) => {
-                      const selected = answers[current.id] === opt;
-                      const isCorrect = submitted && opt === current.answer;
-                      const isWrongSelected = submitted && selected && !isCorrect;
-                      let buttonClass = 'w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between ';
-                      if (submitted) {
-                        if(isCorrect) buttonClass += 'bg-green-100 border-green-300 ring-2 ring-green-300';
-                        else if(isWrongSelected) buttonClass += 'bg-red-100 border-red-300 ring-2 ring-red-300';
-                        else buttonClass += 'bg-gray-100 border-transparent opacity-70';
-                      } else {
-                        if(selected) buttonClass += 'bg-purple-50 border-purple-400 ring-2 ring-purple-400';
-                        else buttonClass += 'bg-gray-50 border-transparent hover:bg-gray-100';
-                      }
-                      return (
-                        <button key={opt} onClick={() => selectOption(current.id, opt)} className={buttonClass} disabled={submitted}>
-                          <span className="font-medium text-gray-700">{opt}</span>
-                          {submitted && isCorrect && <span className="text-green-600 font-bold">✔</span>}
-                          {submitted && isWrongSelected && <span className="text-red-500 font-bold">✖</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+
+            <div key={current.id}>
+              <h2 className="text-lg md:text-xl font-bold mb-2 text-gray-800">
+                {current.question}
+              </h2>
+              <p className="text-sm text-gray-400 mb-4 capitalize">
+                Difficulty: {current.difficulty || "unknown"}
+              </p>
+              <div className="grid gap-3 md:gap-4">
+                {current.options.map((opt) => {
+                  const selected = answers[current.id] === opt;
+                  const isCorrect = submitted && opt === current.answer;
+                  const isWrongSelected = submitted && selected && !isCorrect;
+                  let buttonClass =
+                    "w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between ";
+                  if (submitted) {
+                    if (isCorrect) buttonClass += "bg-green-100 border-green-300 ring-2 ring-green-300";
+                    else if (isWrongSelected) buttonClass += "bg-red-100 border-red-300 ring-2 ring-red-300";
+                    else buttonClass += "bg-gray-100 border-transparent opacity-70";
+                  } else {
+                    if (selected) buttonClass += "bg-purple-50 border-purple-400 ring-2 ring-purple-400";
+                    else buttonClass += "bg-gray-50 border-transparent hover:bg-gray-100";
+                  }
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => selectOption(current.id, opt)}
+                      className={buttonClass}
+                      disabled={submitted}
+                    >
+                      <span className="font-medium text-gray-700">{opt}</span>
+                      {submitted && isCorrect && <span className="text-green-600 font-bold">✔</span>}
+                      {submitted && isWrongSelected && <span className="text-red-500 font-bold">✖</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -343,21 +285,17 @@ export default function App() {
                 )}
               </div>
             </footer>
-            
+
             {submitted && (
-              <div className="mt-6 bg-gray-50 p-4 rounded-xl border">
-                <div className="text-center">
-                  <div className="text-sm text-gray-600">Final Score</div>
-                  <div className="text-3xl font-bold text-gray-800">{score} / {total} ({Math.round((score / total) * 100)}%)</div>
+              <div className="mt-6 bg-gray-50 p-4 rounded-xl border text-center">
+                <div className="text-sm text-gray-600">Final Score</div>
+                <div className="text-3xl font-bold text-gray-800">
+                  {score} / {total} ({Math.round((score / total) * 100)}%)
                 </div>
               </div>
             )}
           </div>
         </main>
-
-        <footer className="mt-8 text-center text-xs text-gray-400">
-          Built with React & Tailwind CSS.
-        </footer>
       </div>
     </div>
   );
