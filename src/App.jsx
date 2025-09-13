@@ -1,9 +1,11 @@
+// ---------- FILE: src/App.jsx ----------
 import { useState } from "react";
 import ReactSandbox from "./ReactSandbox";
 import Credentials from "./credentials";
 import Chatbot from "./webhook";
 import QuizApp from "./quiz";
-import StoryApp from "./story"; // ✅ Import your story component
+import StoryApp from "./story";
+import Round1 from "./Round1"; // ✅ Keep file name as Round1
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -14,12 +16,13 @@ export default function App() {
     { key: "credentials", label: "Credentials" },
     { key: "chatbot", label: "Chatbot" },
     { key: "quiz", label: "Quiz" },
-    { key: "story", label: "Story" }, // ✅ Added Story to nav
+    { key: "story", label: "Story" },
+    { key: "round1", label: "Hackathon" }, // ✅ Only changed label
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans flex flex-col">
-      {/* Navigation */}
+      {/* Header */}
       <header className="bg-gray-900 text-white shadow-md">
         <div className="container mx-auto flex items-center justify-between py-3 px-6">
           <h1 className="text-xl font-bold">⚡ Dev Playground</h1>
@@ -51,9 +54,11 @@ export default function App() {
               </h2>
               <p className="text-gray-600 text-lg">
                 Use the navigation bar above to explore the different tools,
-                including the React Compiler, Chatbot, Quiz, and Story Generator.
+                including the React Compiler, Chatbot, Quiz, Story Generator,
+                and Hackathon Challenges.
               </p>
               <div className="flex justify-center gap-4 flex-wrap">
+                {/* Buttons */}
                 <button
                   onClick={() => setPage("sandbox")}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg shadow-md transition"
@@ -78,11 +83,17 @@ export default function App() {
                 >
                   Quiz
                 </button>
-                 <button
+                <button
                   onClick={() => setPage("story")}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg shadow-md transition"
                 >
                   Story
+                </button>
+                <button
+                  onClick={() => setPage("round1")}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2 rounded-lg shadow-md transition"
+                >
+                  Hackathon {/* ✅ Button title changed */}
                 </button>
               </div>
             </div>
@@ -93,7 +104,8 @@ export default function App() {
         {page === "credentials" && <Credentials />}
         {page === "chatbot" && <Chatbot />}
         {page === "quiz" && <QuizApp />}
-        {page === "story" && <StoryApp />} {/* ✅ Render story here */}
+        {page === "story" && <StoryApp />}
+        {page === "round1" && <Round1 />} {/* ✅ Still points to Round1.jsx */}
       </main>
     </div>
   );
